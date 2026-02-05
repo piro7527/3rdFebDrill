@@ -163,7 +163,7 @@ class CommentGenerator:
         """桐島凛子先生のコメント生成（厳しめ）"""
         comments = []
         
-        # 問題数に関するコメント
+        # 正答数に関するコメント
         comments.append(self._kirihima_study_comment(student))
         
         # 正答率に関するコメント
@@ -179,7 +179,7 @@ class CommentGenerator:
         """山田陽介先生のコメント生成（励まし）"""
         comments = []
         
-        # 問題数に関するコメント
+        # 正答数に関するコメント
         comments.append(self._yamada_study_comment(student))
         
         # 正答率に関するコメント
@@ -191,17 +191,17 @@ class CommentGenerator:
         return "\n".join([c for c in comments if c])
     
     def _kirihima_study_comment(self, student: StudentData) -> str:
-        """桐島先生の学習量コメント"""
-        total = student.total_questions
+        """桐島先生の正答数コメント"""
+        total_correct = student.total_correct
         
-        if total >= 300:
-            return f"総問題数{total}問と、十分な演習量ですね。この調子を維持してください。"
-        elif total >= 200:
-            return f"総問題数{total}問と、概ね良好です。ただし、さらなる演習で定着を図りましょう。"
-        elif total >= 100:
-            return f"総問題数{total}問と、やや不足気味です。繰り返しの演習が重要です。"
+        if total_correct >= 180:
+            return f"正答数{total_correct}問と、素晴らしい成果です。知識が定着していますね。"
+        elif total_correct >= 120:
+            return f"正答数{total_correct}問と、順調に正解を積み上げています。この調子で続けましょう。"
+        elif total_correct >= 60:
+            return f"正答数{total_correct}問です。さらに正答数を増やしていきましょう。"
         else:
-            return f"総問題数{total}問と、明らかに不足しています。早急に演習量を増やしてください。"
+            return f"正答数{total_correct}問です。まずは正答数を増やすことから始めましょう。"
     
     def _kirihima_score_comment(self, student: StudentData) -> str:
         """桐島先生の正答率コメント"""
@@ -226,17 +226,17 @@ class CommentGenerator:
         return f"特に{worst.field_name}は{worst.score:.1f}%と学校平均を{abs(worst.diff):.1f}%下回っています。集中的に取り組んでください。"
     
     def _yamada_study_comment(self, student: StudentData) -> str:
-        """山田先生の学習量コメント"""
-        total = student.total_questions
+        """山田先生の正答数コメント"""
+        total_correct = student.total_correct
         
-        if total >= 300:
-            return f"{total}問も解いたんだね！すごい努力だよ！"
-        elif total >= 200:
-            return f"{total}問、コツコツ頑張ってるね！この調子で続けていこう！"
-        elif total >= 100:
-            return f"{total}問取り組んだんだね。あと少しずつ増やしていけば、きっと伸びるよ！"
+        if total_correct >= 180:
+            return f"{total_correct}問も正解してる！すごい実力だね！"
+        elif total_correct >= 120:
+            return f"{total_correct}問正解！だいぶ正解が増えてきたね！この調子！"
+        elif total_correct >= 60:
+            return f"{total_correct}問正解！正解が増えるともっと楽しくなるよ！"
         else:
-            return f"まだ始めたばかりかな？大丈夫、これから一緒に頑張っていこう！"
+            return f"正答数{total_correct}問だね。一つずつ正解を増やしていこう！"
     
     def _yamada_score_comment(self, student: StudentData) -> str:
         """山田先生の正答率コメント"""
@@ -687,7 +687,7 @@ class ReportGenerator:
 # ============================================
 
 if __name__ == "__main__":
-    csv_path = "学習記録_統合_全期間.csv"
+    csv_path = "学習記録_統合.csv"
     
     if os.path.exists(csv_path):
         print("=" * 50)
@@ -713,7 +713,7 @@ if __name__ == "__main__":
         if students:
             test_student = students[0]
             print(f"\n【テスト: {test_student.name}】")
-            print(f"総問題数: {test_student.total_questions}問")
+            print(f"正答数: {test_student.total_correct}問")
             print(f"総合正答率: {test_student.total_accuracy:.1f}%")
             print("\n--- 桐島先生のコメント ---")
             print(generator.generate_kirihima_comment(test_student))

@@ -14,7 +14,9 @@ import os
 def load_csv_files(directory: str) -> pd.DataFrame:
     """指定ディレクトリ内の入力CSVファイルを読み込んで結合"""
     # 入力ファイルのみを対象（出力ファイル「学習記録_統合」を除外）
-    csv_files = glob.glob(os.path.join(directory, "学習記録_フィルター済み_*.csv"))
+    # csvDataフォルダ内のファイルを対象
+    search_dir = os.path.join(directory, "csvData")
+    csv_files = glob.glob(os.path.join(search_dir, "学習記録_フィルター済み_*.csv"))
     
     if not csv_files:
         print("CSVファイルが見つかりません")
@@ -27,6 +29,9 @@ def load_csv_files(directory: str) -> pd.DataFrame:
     dfs = []
     for file in csv_files:
         df = pd.read_csv(file, encoding='utf-8')
+        # 氏名の正規化（スペース、タブ、アンダースコア、全角スペース、全角アンダースコアを除去）
+        if '氏名' in df.columns:
+            df['氏名'] = df['氏名'].astype(str).str.replace(r'[\s_＿]+', '', regex=True)
         dfs.append(df)
     
     return pd.concat(dfs, ignore_index=True)
