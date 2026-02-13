@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 from datetime import datetime
+import logging
+from weasyprint import HTML
 
 # ============================================
 # データクラス定義
@@ -271,6 +273,11 @@ class ReportGenerator:
         self.comment_generator = CommentGenerator()
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(f"{output_dir}/html", exist_ok=True)
+        os.makedirs(f"{output_dir}/pdf", exist_ok=True)
+        
+        # ロガー設定（WeasyPrintのログを抑制）
+        logger = logging.getLogger('weasyprint')
+        logger.setLevel(logging.ERROR)
     
     def _get_evaluation_class(self, level: str) -> str:
         """評価レベルに応じたCSSクラスを返す"""
@@ -671,13 +678,32 @@ class ReportGenerator:
             f.write(html)
         return filename
     
+    def save_pdf(self, student: StudentData, period: str = "2026年2月") -> str:
+        """PDFファイルを保存"""
+        html = self.generate_html(student, period)
+        filename = f"{self.output_dir}/pdf/{student.name.replace(' ', '_')}.pdf"
+        
+        # WeasyPrintでPDF生成
+        HTML(string=html).write_pdf(filename)
+        return filename
+    
     def generate_all(self, students: List[StudentData], period: str = "2026年2月") -> List[str]:
         """全学生のレポートを生成"""
         results = []
         
-        for student in students:
+        print(f"  ・処理対象: {len(students)}名")
+        for i, student in enumerate(students, 1):
+            # HTML保存
             html_file = self.save_html(student, period)
-            results.append(html_file)
+            
+            # PDF保存
+            pdf_file = self.save_pdf(student, period)
+            
+            results.append(pdf_file)
+            
+            # 進捗表示
+            if i % 10 == 0:
+                print(f"    - {i}名処理完了...")
         
         return results
 
@@ -723,9 +749,9 @@ if __name__ == "__main__":
         # レポート出力
         print("\n[Phase 3] 全学生のHTMLレポート生成...")
         report_gen = ReportGenerator()
-        results = report_gen.generate_all(students, "2026年2月（2/2〜2/4）")
+        results = report_gen.generate_all(students, "2026年2月9日〜2月13日")
         
-        print(f"\n✅ 完了！ {len(results)}名分のHTMLファイルを output/html フォルダに出力しました")
+        print(f"\n✅ 完了！ {len(results)}名分のレポート（HTML/PDF）を output フォルダに出力しました")
         
     else:
         print(f"ファイルが見つかりません: {csv_path}")

@@ -14,9 +14,10 @@ import os
 def load_csv_files(directory: str) -> pd.DataFrame:
     """指定ディレクトリ内の入力CSVファイルを読み込んで結合"""
     # 入力ファイルのみを対象（出力ファイル「学習記録_統合」を除外）
-    # csvDataフォルダ内のファイルを対象
-    search_dir = os.path.join(directory, "csvData")
-    csv_files = glob.glob(os.path.join(search_dir, "学習記録_フィルター済み_*.csv"))
+    # csvData/0209-0213フォルダ内のファイルを対象
+    search_dir = os.path.join(directory, "csvData", "0209-0213")
+    # 先頭に分野名がついているファイルも対象にするためワイルドカードを変更
+    csv_files = glob.glob(os.path.join(search_dir, "*学習記録_フィルター済み_*.csv"))
     
     if not csv_files:
         print("CSVファイルが見つかりません")
@@ -43,14 +44,28 @@ def integrate_records(df: pd.DataFrame) -> pd.DataFrame:
     # 日付を統一フォーマットに変換
     df['日付'] = pd.to_datetime(df['日付']).dt.strftime('%Y/%m/%d')
     
-    # グループ化して集計
-    grouped = df.groupby(['学籍番号', '氏名', '日付', '分野']).agg({
+    # 学籍番号の名寄せ（氏名ごとに最も頻出するIDに統一）
+    # 氏名ごとのID出現回数を計算
+    id_counts = df.groupby(['氏名', '学籍番号']).size().reset_index(name='count')
+    # 氏名ごとに最も多いIDを取得
+    representative_ids = id_counts.sort_values('count', ascending=False).drop_duplicates('氏名')[['氏名', '学籍番号']]
+    # 辞書に変換 {氏名: 代表ID}
+    name_to_id = dict(zip(representative_ids['氏名'], representative_ids['学籍番号']))
+    # IDを置換
+    df['学籍番号'] = df['氏名'].map(name_to_id)
+    
+    # グループ化して集計（学籍番号は代表値（統一済み）、問題数・正答数は合計）
+    grouped = df.groupby(['氏名', '日付', '分野']).agg({
+        '学籍番号': 'first',  # 最初のIDを採用（またはmax/min等）
         '問題数': 'sum',
         '正答数': 'sum'
     }).reset_index()
     
     # 正答率を再計算
     grouped['正答率(%)'] = (grouped['正答数'] / grouped['問題数'] * 100).round(1)
+    
+    # 学籍番号を先頭列に移動整理
+    grouped = grouped[['学籍番号', '氏名', '日付', '分野', '問題数', '正答数', '正答率(%)']]
     
     return grouped
 
