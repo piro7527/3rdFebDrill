@@ -11,7 +11,11 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
-from weasyprint import HTML
+try:
+    from weasyprint import HTML
+    HAS_WEASYPRINT = True
+except (ImportError, OSError):
+    HAS_WEASYPRINT = False
 
 # ============================================
 # データクラス定義
@@ -100,9 +104,12 @@ class CSVDataExtractor:
         self.df = None
         self.school_avg = {}
         
-    def load(self):
+    def load(self, exclude_students=None):
         """CSVファイルを読み込み"""
         self.df = pd.read_csv(self.csv_path)
+        # 除外学生のフィルター
+        if exclude_students:
+            self.df = self.df[~self.df['氏名'].str.strip().str.replace(r'\s+', ' ', regex=True).isin(exclude_students)]
         self._calculate_school_avg()
         
     def _calculate_school_avg(self):
@@ -117,10 +124,14 @@ class CSVDataExtractor:
         """全学生のデータを抽出"""
         students = []
         
-        # 学籍番号でグループ化
-        for student_id in self.df['学籍番号'].unique():
-            student_data = self.df[self.df['学籍番号'] == student_id]
-            name = student_data['氏名'].iloc[0]
+        # 氏名の正規化
+        self.df['氏名'] = self.df['氏名'].str.strip().str.replace(r'\s+', ' ', regex=True)
+        
+        # 氏名でグループ化（同一人物の学籍番号揺れを統合）
+        for name in self.df['氏名'].unique():
+            student_data = self.df[self.df['氏名'] == name]
+            # 最も頻度の高い学籍番号を代表IDとする
+            student_id = student_data['学籍番号'].value_counts().index[0]
             
             # 分野別スコア
             field_scores = []
@@ -673,7 +684,7 @@ class ReportGenerator:
     def save_html(self, student: StudentData, period: str = "2026年2月") -> str:
         """HTMLファイルを保存"""
         html = self.generate_html(student, period)
-        filename = f"{self.output_dir}/html/{student.name.replace(' ', '_')}.html"
+        filename = f"{self.output_dir}/html/{student.student_id}_{student.name.replace(' ', '_')}.html"
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(html)
         return filename
@@ -681,7 +692,7 @@ class ReportGenerator:
     def save_pdf(self, student: StudentData, period: str = "2026年2月") -> str:
         """PDFファイルを保存"""
         html = self.generate_html(student, period)
-        filename = f"{self.output_dir}/pdf/{student.name.replace(' ', '_')}.pdf"
+        filename = f"{self.output_dir}/pdf/{student.student_id}_{student.name.replace(' ', '_')}.pdf"
         
         # WeasyPrintでPDF生成
         HTML(string=html).write_pdf(filename)
@@ -695,11 +706,11 @@ class ReportGenerator:
         for i, student in enumerate(students, 1):
             # HTML保存
             html_file = self.save_html(student, period)
+            results.append(html_file)
             
-            # PDF保存
-            pdf_file = self.save_pdf(student, period)
-            
-            results.append(pdf_file)
+            # PDF保存（WeasyPrintが利用可能な場合のみ）
+            if HAS_WEASYPRINT:
+                pdf_file = self.save_pdf(student, period)
             
             # 進捗表示
             if i % 10 == 0:
@@ -723,7 +734,7 @@ if __name__ == "__main__":
         # データ抽出
         print("\n[Phase 1] データ抽出中...")
         extractor = CSVDataExtractor(csv_path)
-        extractor.load()
+        extractor.load(exclude_students=["藤野滉大"])
         students = extractor.extract_all_students()
         print(f"  → {len(students)}名の学生データを抽出しました")
         
@@ -749,7 +760,7 @@ if __name__ == "__main__":
         # レポート出力
         print("\n[Phase 3] 全学生のHTMLレポート生成...")
         report_gen = ReportGenerator()
-        results = report_gen.generate_all(students, "2026年2月9日〜2月13日")
+        results = report_gen.generate_all(students, "2026年2月16日〜2月20日")
         
         print(f"\n✅ 完了！ {len(results)}名分のレポート（HTML/PDF）を output フォルダに出力しました")
         
